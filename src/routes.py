@@ -1,10 +1,21 @@
 from flask import Blueprint, request, jsonify,make_response
 from .models import User
 from flask_login import LoginManager, login_user
+from .forms import RegisterForm
+from .models import db
+from sqlalchemy.exc import SQLAlchemyError
+from flask_bcrypt import Bcrypt
 
 main = Blueprint('main', __name__)
 login_manager = LoginManager()
-##login_manager.login_view = 'login'
+bcrypt = Bcrypt()
+
+def handle_cors():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+    return response
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -13,18 +24,14 @@ def load_user(user_id):
 @main.route('/login', methods=['OPTIONS', 'POST'])
 def login():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response = handle_cors()
         return response
 
     elif request.method == 'POST':
         data = request.get_json()
         user = User.query.filter_by(username=data['username']).first()
         
-        if user:
-            ##and bcrypt.check_password_hash(user.password, data['password']):
+        if user and bcrypt.check_password_hash(user.password, data['password']):
             login_user(user)
             response = make_response(jsonify({'message': 'success, you are logged in'}))
         else:
@@ -34,7 +41,70 @@ def login():
 
         return response
     
-@main.route('/signup', methods=['POST'])
+@main.route('/signup', methods=['OPTIONS','POST'])
 def signup():
-    response = make_response(jsonify({'message': 'Signing ya right up!'}))
-    return response
+    
+    if request.method == 'OPTIONS':
+        response = handle_cors()
+        return response
+    
+    # data = request.form
+    data = request.get_json()
+
+    required_fields = ['firstname','lastname','email','username','password']
+
+    for field in required_fields:
+        if field not in required_fields:
+            response = make_response(jsonify({'success': False, 'error': f'Missing field {field}'}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+    if not (4 <= len(data['firstname']) <= 40):
+        response = make_response(jsonify({'success': False, 'error': 'Invalid length for firstname'}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    if not (4 <= len(data['lastname']) <= 40):
+        response = make_response(jsonify({'success': False, 'error': 'Invalid length for lastname'}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    if not (4 <= len(data['email']) <= 40):
+        response = make_response(jsonify({'success': False, 'error': 'Invalid length for email'}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    if not (4 <= len(data['username']) <= 20):
+        response = make_response(jsonify({'success': False, 'error': 'Invalid length for username'}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    if not (8 <= len(data['password']) <= 20):
+        response = make_response(jsonify({'success': False, 'error': 'Invalid length for password'}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+    try:
+        hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+        new_user = User(
+            firstname=data['firstname'],
+            lastname=data['lastname'],
+            email=data['email'],
+            username=data['username'],
+            password=hashed_password,
+            hasAnswered=0
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        response = make_response(jsonify({'success': True, 'message': 'User registered successfully'}), 201)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+
+        return response
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print(e)
+        response = make_response(jsonify({'success': False, 'error': 'Database error occurred'}), 500)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+
+        return response  
+

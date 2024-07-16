@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 class Config:
@@ -10,4 +9,3 @@ class Config:
     OPEN_AI_SECRET_KEY = os.environ.get("OPEN_AI_SECRET_KEY")
     SECRET_KEY = os.environ.get('SECRET_KEY')
     NOMIC_API_KEY = os.environ.get('NOMIC_API_KEY')
-    # Add more configuration parameters as needed
