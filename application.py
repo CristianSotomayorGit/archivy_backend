@@ -1,9 +1,12 @@
+import os
 from flask import Blueprint, Flask
 from flask_cors import CORS
 from flask_login import LoginManager
 from src.routes import main as main_blueprint, login_manager, bcrypt
 from src.models import db
 from config import Config as config_instance
+import pinecone
+
 
 application = Flask(__name__)
 
